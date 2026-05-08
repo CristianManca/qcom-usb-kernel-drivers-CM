@@ -98,6 +98,7 @@
                     <RowDefinition Height="*"></RowDefinition>
                     <RowDefinition Height="*"></RowDefinition>
                     <RowDefinition Height="*"></RowDefinition>
+                    <RowDefinition Height="*"></RowDefinition>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition></ColumnDefinition>
@@ -159,7 +160,7 @@
                 </StackPanel>
 
                 <Label Content="File Size (MB):" Grid.Row="2" VerticalContentAlignment="Center" FontSize="15"></Label>
-                <StackPanel  Grid.Column="2" Grid.Row="2" Orientation="Horizontal">
+                <StackPanel  Grid.Column="1" Grid.Row="2" Orientation="Horizontal">
                     <TextBox x:Name="FileSizeTxtBox" Width="180" Margin="5" VerticalContentAlignment="Center" HorizontalAlignment="Left">
                         <TextBox.Text>
                             <Binding Path="FileSize" UpdateSourceTrigger="PropertyChanged" >
@@ -195,7 +196,18 @@
                     <TextBlock Foreground="Gray" Padding="5" Text="?" FontSize="18" VerticalAlignment="Center" ToolTip="MaxFile in MB (default 100, 0: unlimited)"/>
                 </StackPanel>
 
-                <ToggleButton x:Name="EnableSessionToggleBtn" Grid.Row="3" Grid.Column ="2" Grid.ColumnSpan="3" Width="200" FontSize="15" Margin="0,10,0,0"
+                <Label Grid.Row="3" Content="Device VID Filter:" VerticalContentAlignment="Center" FontSize="15"></Label>
+                <Grid Grid.Column="1" Grid.Row="3" Margin="5,0,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="DeviceVidFilterTxtBox" Grid.Column="0" MinWidth="120" Margin="0,0,5,0" VerticalContentAlignment="Center"
+                             Text="{Binding DeviceVidFilter, UpdateSourceTrigger=PropertyChanged}" ToolTip="Use XXXX;YYYY (hex VID values)"/>
+                    <Button Grid.Column="1" MinWidth="56" Padding="8,2" Command="{Binding ApplyDeviceVidFilterCommand}" Content="Apply"/>
+                </Grid>
+
+                <ToggleButton x:Name="EnableSessionToggleBtn" Grid.Row="4" Grid.Column ="1" Width="200" FontSize="15" Margin="0,10,0,0"
                           Command="{Binding EnableSessionClickCommand}" CommandParameter="{Binding}" IsChecked="{Binding Path=SessionRunning, Mode=OneWay}"
                           Content="{Binding Path=SessionRunning, Converter={StaticResource SessionToTextConverter}, Mode=OneWay}">
                     <ToggleButton.Style>
@@ -208,7 +220,7 @@
                         </Style>
                     </ToggleButton.Style>
                 </ToggleButton>
-				<Button Grid.Row="3" Grid.Column ="0" Grid.ColumnSpan="1" Width="120" FontSize="15" Margin="0,10,0,0" Command="{Binding ParseLogsCommand}" Content="Parse Logs">
+ 				<Button Grid.Row="4" Grid.Column ="0" Grid.ColumnSpan="1" Width="120" FontSize="15" Margin="0,10,0,0" Command="{Binding ParseLogsCommand}" Content="Parse Logs">
 					<Button.Style>
 						<Style TargetType="Button">
 							<Setter Property="IsEnabled" Value="False"/>

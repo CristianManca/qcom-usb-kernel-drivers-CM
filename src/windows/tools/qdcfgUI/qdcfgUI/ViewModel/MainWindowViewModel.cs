@@ -12,6 +12,8 @@ using System.Windows.Data;
 using System.IO;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Configuration;
+using System.Text.RegularExpressions;
 
 namespace qdcfgUI
 {
@@ -21,6 +23,8 @@ namespace qdcfgUI
         public static readonly uint defaultLevel = 0xFF;
         public static readonly uint currMaxLevel = 0x06;
         public static readonly uint defaultFileSize = 100;
+        private const string defaultDeviceVidFilter = "05C6;1BC7";
+        private List<string> configuredVidFilters = new List<string>();
 
         private readonly object deviceLock = new object();
 
@@ -184,6 +188,20 @@ namespace qdcfgUI
             }
         }
 
+        private string deviceVidFilter;
+        public string DeviceVidFilter
+        {
+            get { return deviceVidFilter; }
+            set
+            {
+                if (deviceVidFilter != value)
+                {
+                    deviceVidFilter = value;
+                    NotifyPropertyChanged("DeviceVidFilter");
+                }
+            }
+        }
+
         //Action taken when enabling/disabling per device log
         private RelayCommand enableLogClickCommand;
         public RelayCommand EnableLogClickCommand
@@ -256,15 +274,41 @@ namespace qdcfgUI
             }
         }
 
+        private RelayCommand applyDeviceVidFilterCommand;
+        public RelayCommand ApplyDeviceVidFilterCommand
+        {
+            get
+            {
+                if (applyDeviceVidFilterCommand == null)
+                {
+                    applyDeviceVidFilterCommand = new RelayCommand(OnApplyDeviceVidFilterClickCommand);
+                }
+                return applyDeviceVidFilterCommand;
+            }
+        }
+
         public MainWindowViewModel()
         {
             ParentDevices = new ObservableCollection<ParentDevice>();
             ExposedCommands = new ObservableCollection<QDCFGCommand>();
 
-            QCDEVMON.ConfigureFeatures();
+            DeviceVidFilter = LoadDeviceVidFilterSetting();
+            string vidError;
+            if (!TryParseVidFilter(DeviceVidFilter, out configuredVidFilters, out vidError))
+            {
+                DeviceVidFilter = defaultDeviceVidFilter;
+                TryParseVidFilter(DeviceVidFilter, out configuredVidFilters, out vidError);
+                SaveDeviceVidFilterSetting(DeviceVidFilter);
+            }
+            else
+            {
+                DeviceVidFilter = ToHexFilterDisplay(configuredVidFilters);
+            }
+
+            QCDEVMON.DeviceDiscovered += QCDEVMON_DeviceDiscovered;
+            QCDEVMON.ConfigureFeatures(configuredVidFilters.ToArray());
             QCDEVMON.SetDeviceNotificationCallback();
             QCDEVMON.LaunchDeviceMonitor();
-            QCDEVMON.DeviceDiscovered += QCDEVMON_DeviceDiscovered;
             UpdateSessionState();
             UpdateGlobalSetting(false);
 
@@ -301,25 +345,31 @@ namespace qdcfgUI
             QDEV dev = device.dev;
             string deviceName = dev.DevDesc;
             string parentName = dev.ParentDev;
+            string symbolicName = dev.DevName;
+            string hardwareId = dev.HwId;
 
-            if (string.IsNullOrEmpty(deviceName) || string.IsNullOrEmpty(parentName))
+            if (string.IsNullOrEmpty(deviceName))
             {
                 Console.WriteLine("Empty device name");
                 return;
+            }
+            if (string.IsNullOrEmpty(parentName))
+            {
+                parentName = "Uncategorized Devices";
             }
             if (deviceName.Contains("ADB"))
             {
                 Console.WriteLine("ADB device");
                 return;
             }
-            if (!deviceName.Contains("Qualcomm") && !deviceName.Contains("QDSS"))
+            bool hasConfiguredVid = configuredVidFilters.Any(vid =>
+                (!string.IsNullOrEmpty(hardwareId) && hardwareId.IndexOf(vid, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                (!string.IsNullOrEmpty(symbolicName) && symbolicName.IndexOf(vid, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                parentName.IndexOf(vid, StringComparison.OrdinalIgnoreCase) >= 0);
+
+            if (!hasConfiguredVid)
             {
-                Console.WriteLine("Non-Qualcomm device");
-                return;
-            }
-            if (!parentName.Contains("Qualcomm") || parentName.Contains("ADB"))
-            {
-                Console.WriteLine("Parent is either a Non-Qualcomm device or ADB");
+                Console.WriteLine("Device filtered out by VID");
                 return;
             }
 
@@ -555,6 +605,22 @@ namespace qdcfgUI
             UpdateGlobalSetting(false);
         }
 
+        private void OnApplyDeviceVidFilterClickCommand(object state)
+        {
+            string parseError;
+            List<string> parsedFilter;
+            if (!TryParseVidFilter(DeviceVidFilter, out parsedFilter, out parseError))
+            {
+                MessageBox.Show(parseError);
+                return;
+            }
+
+            configuredVidFilters = parsedFilter;
+            DeviceVidFilter = ToHexFilterDisplay(configuredVidFilters);
+            SaveDeviceVidFilterSetting(DeviceVidFilter);
+            RestartDeviceMonitorWithVidFilter();
+        }
+
         private void onParseLogsCommand(object state)
         {
             if(LoggingDisabled)
@@ -712,6 +778,84 @@ namespace qdcfgUI
                 Level = defaultLevel;
                 FileSize = defaultFileSize.ToString();
             }
+        }
+
+        private string LoadDeviceVidFilterSetting()
+        {
+            string configuredFilter = ConfigurationManager.AppSettings["DeviceVidFilter"];
+            if (string.IsNullOrWhiteSpace(configuredFilter))
+            {
+                return defaultDeviceVidFilter;
+            }
+            return configuredFilter;
+        }
+
+        private void SaveDeviceVidFilterSetting(string value)
+        {
+            Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+            KeyValueConfigurationCollection settings = config.AppSettings.Settings;
+            if (settings["DeviceVidFilter"] == null)
+            {
+                settings.Add("DeviceVidFilter", value);
+            }
+            else
+            {
+                settings["DeviceVidFilter"].Value = value;
+            }
+            config.Save(ConfigurationSaveMode.Modified);
+            ConfigurationManager.RefreshSection("appSettings");
+        }
+
+        private bool TryParseVidFilter(string value, out List<string> parsedFilter, out string error)
+        {
+            parsedFilter = new List<string>();
+            error = null;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                error = "VID filter is empty. Example: 05C6;1BC7";
+                return false;
+            }
+
+            string[] tokens = value.Split(new[] { ';', ',', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string token in tokens)
+            {
+                string normalizedHex = token.Trim().ToUpperInvariant();
+                if (!Regex.IsMatch(normalizedHex, "^[0-9A-F]{4}$"))
+                {
+                    error = "Invalid VID format: " + token + ". Use 4 hex digits (example: 1BC7), separated by ';' or ','.";
+                    parsedFilter.Clear();
+                    return false;
+                }
+                string normalized = "VID_" + normalizedHex;
+                if (!parsedFilter.Contains(normalized))
+                {
+                    parsedFilter.Add(normalized);
+                }
+            }
+
+            if (parsedFilter.Count == 0)
+            {
+                error = "VID filter is empty. Example: 05C6;1BC7";
+                return false;
+            }
+            return true;
+        }
+
+        private string ToHexFilterDisplay(IEnumerable<string> vidFilters)
+        {
+            return string.Join(";", vidFilters.Select(vid => vid.StartsWith("VID_", StringComparison.OrdinalIgnoreCase) ? vid.Substring(4) : vid));
+        }
+
+        private void RestartDeviceMonitorWithVidFilter()
+        {
+            QCDEVMON.QDDLL_StopDeviceMonitor();
+            lock (deviceLock)
+            {
+                ParentDevices.Clear();
+            }
+            QCDEVMON.ConfigureFeatures(configuredVidFilters.ToArray());
+            QCDEVMON.SetDeviceNotificationCallback();
+            QCDEVMON.LaunchDeviceMonitor();
         }
 
         public void PrintConsole(string message)

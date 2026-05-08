@@ -35,6 +35,7 @@ public struct QDEV
     public string DevName;
     public string LIfName;
     public string SerNum;
+    public string HwId;
     public byte Flag;
     public string ParentDev;
     /*public IntPtr Loc;
@@ -92,7 +93,7 @@ namespace QCDevice
         public static extern void QDDLL_StartDeviceMonitor();
 
         [DllImport("qcdev.dll", CharSet = CharSet.Auto)]
-        public static extern void QDDLL_stopDeviceMonitor();
+        public static extern void QDDLL_StopDeviceMonitor();
 
         [DllImport("qcdev.dll", CallingConvention = CallingConvention.Cdecl)]
         unsafe public static extern void QDDLL_SetFeature([In] IntPtr Settings);
@@ -105,13 +106,21 @@ namespace QCDevice
             QDDLL_StartDeviceMonitor();
         }
 
-        unsafe public static void ConfigureFeatures()
+        unsafe public static void ConfigureFeatures(string[] vidFilters)
         {
             QDEV_FEATURE_SETTING mySet = new QDEV_FEATURE_SETTING();
             mySet.Version = 1;
-            mySet.Settings = (QcConfig.DEV_FEATURE_INCLUDE_NONE_QC_PORTS | QcConfig.DEV_FEATURE_SCAN_USB_WITH_VID);
+            mySet.Settings = QcConfig.DEV_FEATURE_INCLUDE_NONE_QC_PORTS;
             mySet.DeviceClass = (QcConfig.DEV_CLASS_NET | QcConfig.DEV_CLASS_PORTS | QcConfig.DEV_CLASS_USB);
-            mySet.VID = "VID_05C6";
+            mySet.VID = null;
+
+            if (vidFilters != null)
+            {
+                if (vidFilters.Length > 0)
+                {
+                    mySet.VID = vidFilters[0];
+                }
+            }
             int iSizeOfsStruct = Marshal.SizeOf(typeof(QDEV_FEATURE_SETTING));
             IntPtr pSettings = Marshal.AllocHGlobal(iSizeOfsStruct);
             Marshal.StructureToPtr(mySet, pSettings, false);
@@ -140,6 +149,7 @@ namespace QCDevice
             dev.DevName = Marshal.PtrToStringAnsi(Param.DevName);
             dev.SerNum = Marshal.PtrToStringAuto(Param.SerNum);
             dev.LIfName = Marshal.PtrToStringAuto(Param.LIfName);
+            dev.HwId = Marshal.PtrToStringAuto(Param.HwId);
 
             devState = (byte)((Param.Flag & DevFlag.MASK_DEV_STATE) >> 4);
             devType = (byte)((Param.Flag & DevFlag.MASK_DEV_TYPE) >> 8);
