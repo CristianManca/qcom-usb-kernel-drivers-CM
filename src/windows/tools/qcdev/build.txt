@@ -1,0 +1,11 @@
+MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+
+  qdaio.cpp
+  qddll.cpp
+  scandev.cpp
+  Generating Code...
+     Creating library C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qcdev\Release\qcdev.lib and object C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qcdev\Release\qcdev.exp
+  qcdev.vcxproj -> C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qcdev\Release\qcdev.dll
+MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+
+C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(459,5): error MSB8013: This project doesn't contain the Configuration and Platform combination of Release_EXE|Win32. [C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qcdev\qcdev.vcxproj]

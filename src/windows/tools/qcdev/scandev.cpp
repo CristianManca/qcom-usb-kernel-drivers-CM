@@ -1025,7 +1025,8 @@ namespace QcDevice
                     else
                     {
                         if ((InstanceId != NULL) &&
-                            (StrStrW((PTSTR)InstanceId, TEXT("VID_05C6")) != NULL) &&    // is a QC USB device
+                            ((StrStrW((PTSTR)InstanceId, TEXT("VID_05C6")) != NULL) ||     // is a Telit USB device
+                             (StrStrW((PTSTR)InstanceId, TEXT("VID_1BC7")) != NULL)) &&    // is a QC USB device
                             (StrStrW((PTSTR)InstanceId, TEXT("&MI_")) != NULL))          // is a composite device
                         {
                             *IsActive = TRUE;

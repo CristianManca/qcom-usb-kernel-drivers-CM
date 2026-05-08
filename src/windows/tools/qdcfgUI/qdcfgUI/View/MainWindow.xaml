@@ -1,0 +1,320 @@
+﻿<Window x:Class="qdcfgUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:QCUtility"
+        xmlns:dev="clr-namespace:QCDevice"
+        xmlns:model="clr-namespace:qdcfgUI"
+        mc:Ignorable="d" 
+        ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterScreen"
+        AllowsTransparency="False"
+        Title="QDCFG" Height="600" Width="1000">
+    <Window.Resources>
+        <model:SessionToTextConverter x:Key="SessionToTextConverter"/>
+		<model:LogParseToTextConverter x:Key="LogParseToTextConverter"/>
+        <model:MaskIsCheckedConverter x:Key="MaskIsCheckedConverter"/>
+    </Window.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1.5*"></ColumnDefinition>
+            <ColumnDefinition Width="1*"></ColumnDefinition>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="1.5*"></RowDefinition>
+            <RowDefinition Height="1*"></RowDefinition>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" BorderThickness="0.5" BorderBrush="Black">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <TreeView Name="DeviceGroupTreeView" ItemsSource="{Binding ParentDevices}" SelectedItemChanged="OnDeviceSelected"  BorderThickness="0">
+                    <TreeView.Resources>
+                        <HierarchicalDataTemplate DataType="{x:Type dev:ParentDevice}" ItemsSource="{Binding Devices}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding DeviceName}" VerticalAlignment="Center" FontSize="15"/>
+                                <ToggleButton Name="EnableLogToggleBtn" Margin="10,5,5,5" Width="80" Height="25" IsChecked="{Binding EnableLog, Mode=OneWay}"
+                                          Command="{Binding DataContext.EnableLogClickCommand, RelativeSource={RelativeSource Mode=FindAncestor,AncestorType={x:Type TreeView}}}"
+                                          CommandParameter="{Binding}" IsEnabled="{Binding DataContext.SessionRunning, RelativeSource={RelativeSource Mode=FindAncestor,AncestorType={x:Type TreeView}}}">
+                                    <ToggleButton.Style>
+                                        <Style TargetType="{x:Type ToggleButton}">
+                                            <Setter Property="Content" Value="Enable Log"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter Property="Content" Value="Disable Log"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ToggleButton.Style>
+                                </ToggleButton>
+                            </StackPanel>
+                        </HierarchicalDataTemplate>
+                        <DataTemplate DataType="{x:Type dev:Device}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding DeviceName}" VerticalAlignment="Center" FontSize="13"/>
+                                <ToggleButton Name="EnableLogToggleBtn" Margin="10,5,5,5" Width="80" Height="25" IsChecked="{Binding EnableLog, Mode=OneWay}"
+                                          Command="{Binding DataContext.EnableLogClickCommand, RelativeSource={RelativeSource Mode=FindAncestor,AncestorType={x:Type TreeView}}}"
+                                          CommandParameter="{Binding}" IsEnabled="{Binding DataContext.SessionRunning, RelativeSource={RelativeSource Mode=FindAncestor,AncestorType={x:Type TreeView}}}">
+                                    <ToggleButton.Style>
+                                        <Style TargetType="{x:Type ToggleButton}">
+                                            <Setter Property="Content" Value="Enable Log"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter Property="Content" Value="Disable Log"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ToggleButton.Style>
+                                </ToggleButton>
+                            </StackPanel>
+                        </DataTemplate>
+                    </TreeView.Resources>
+                </TreeView>
+            </ScrollViewer>
+        </Border>
+
+        <Border Grid.Row="1" BorderThickness="0.5" BorderBrush="Black">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+                <TextBox TextWrapping="Wrap" Text="{Binding LogOutput}" TextAlignment="Left" FontSize="13"
+                       Margin="10" VerticalAlignment="Center" IsReadOnly="True" BorderThickness="0">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Text}" Value="">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+            </ScrollViewer>
+        </Border>
+
+        <Border Grid.Column="1" Grid.Row="1" BorderThickness="0.5" BorderBrush="Black">
+            <Grid Margin="20" VerticalAlignment="Stretch">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"></RowDefinition>
+                    <RowDefinition Height="*"></RowDefinition>
+                    <RowDefinition Height="*"></RowDefinition>
+                    <RowDefinition Height="*"></RowDefinition>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition></ColumnDefinition>
+                    <ColumnDefinition Width="1.5*"></ColumnDefinition>
+                </Grid.ColumnDefinitions>
+
+                <Label Content="Debug Mask:" VerticalContentAlignment="Center" FontSize="15"></Label>
+                <ComboBox x:Name="FlagsTxtBox" Grid.Column="1"  Margin="5" MaxDropDownHeight="144" IsEditable="True" IsReadOnly="True"
+                          VerticalContentAlignment="Center" ItemsSource="{Binding DebugFlags}" Text="{Binding Flags}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox ToolTip="{Binding Category}" VerticalContentAlignment="Center" Checked="OnDebugMaskChecked" Unchecked="OnDebugMaskUnchecked">
+                                <TextBlock Text="{Binding Name}" FontSize="11" Padding="5, 5, 15, 5" Width="150"/>
+                                <CheckBox.Style>
+                                    <Style TargetType="CheckBox">
+                                        <Setter Property="IsChecked">
+                                            <Setter.Value>
+                                                <MultiBinding Converter="{StaticResource MaskIsCheckedConverter}" Mode="OneWay">
+                                                    <Binding Path="DataContext.Value" RelativeSource="{RelativeSource Mode=Self}"/>
+                                                    <Binding Path="Text" RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType=ComboBox}"/>
+                                                </MultiBinding>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </CheckBox.Style>
+                            </CheckBox>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                    <ComboBox.Style>
+                        <Style TargetType="ComboBox">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Path=SessionRunning}" Value="True">
+                                    <Setter Property="IsEnabled" Value="False"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ComboBox.Style>
+                </ComboBox>
+
+                <Label Content="Debug Level:" Grid.Row="1" VerticalContentAlignment="Center" FontSize="15"></Label>
+                <StackPanel Grid.Column="1" Grid.Row="1" Orientation="Horizontal">
+                    <ComboBox Name="LevelTxtBox" Width="180" Margin="5" IsEditable="True" IsReadOnly="True" VerticalContentAlignment="Center" HorizontalAlignment="Left"
+                          ItemsSource="{Binding DebugLevels}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding Level}">
+                        <ComboBox.Style>
+                            <Style TargetType="ComboBox">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Path=SessionRunning}"  Value="True">
+                                        <Setter Property="IsEnabled" Value="False"></Setter>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ComboBox.Style>
+                    </ComboBox>
+                    <TextBlock Foreground="Gray" Padding="5" Text="?" FontSize="18" VerticalAlignment="Center">
+                        <TextBlock.ToolTip>
+                            <Binding ElementName="LevelTxtBox" Path="SelectedItem.Category"></Binding>
+                        </TextBlock.ToolTip>
+                    </TextBlock>
+                </StackPanel>
+
+                <Label Content="File Size (MB):" Grid.Row="2" VerticalContentAlignment="Center" FontSize="15"></Label>
+                <StackPanel  Grid.Column="2" Grid.Row="2" Orientation="Horizontal">
+                    <TextBox x:Name="FileSizeTxtBox" Width="180" Margin="5" VerticalContentAlignment="Center" HorizontalAlignment="Left">
+                        <TextBox.Text>
+                            <Binding Path="FileSize" UpdateSourceTrigger="PropertyChanged" >
+                                <Binding.ValidationRules>
+                                    <local:FileSizeValidationRule MaxValue="10000"/>
+                                </Binding.ValidationRules>
+                            </Binding>
+                        </TextBox.Text>
+                        <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Text}" Value="">
+                                        <Setter Property="Background">
+                                            <Setter.Value>
+                                                <VisualBrush AlignmentX="Left" Stretch="None">
+                                                    <VisualBrush.Visual>
+                                                        <TextBlock Text="100" Foreground="Gray" FontSize="15"/>
+                                                    </VisualBrush.Visual>
+                                                </VisualBrush>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ElementName=EnableSessionToggleBtn,Path=IsChecked}" Value="True">
+                                        <Setter Property="IsEnabled" Value="False"></Setter>
+                                    </DataTrigger>
+                                    <Trigger Property="Validation.HasError" Value="true">
+                                        <Setter Property="ToolTip" Value="{Binding RelativeSource={x:Static RelativeSource.Self},Path=(Validation.Errors)/ErrorContent}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+                    <TextBlock Foreground="Gray" Padding="5" Text="?" FontSize="18" VerticalAlignment="Center" ToolTip="MaxFile in MB (default 100, 0: unlimited)"/>
+                </StackPanel>
+
+                <ToggleButton x:Name="EnableSessionToggleBtn" Grid.Row="3" Grid.Column ="2" Grid.ColumnSpan="3" Width="200" FontSize="15" Margin="0,10,0,0"
+                          Command="{Binding EnableSessionClickCommand}" CommandParameter="{Binding}" IsChecked="{Binding Path=SessionRunning, Mode=OneWay}"
+                          Content="{Binding Path=SessionRunning, Converter={StaticResource SessionToTextConverter}, Mode=OneWay}">
+                    <ToggleButton.Style>
+                        <Style TargetType="{x:Type ToggleButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ElementName=FileSizeTxtBox,Path=(Validation.HasError)}" Value="True">
+                                    <Setter Property="IsEnabled" Value="False"></Setter>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ToggleButton.Style>
+                </ToggleButton>
+				<Button Grid.Row="3" Grid.Column ="0" Grid.ColumnSpan="1" Width="120" FontSize="15" Margin="0,10,0,0" Command="{Binding ParseLogsCommand}" Content="Parse Logs">
+					<Button.Style>
+						<Style TargetType="Button">
+							<Setter Property="IsEnabled" Value="False"/>
+							<Style.Triggers>
+								<DataTrigger Binding="{Binding LoggingDisabled}" Value="True">
+									<Setter Property="IsEnabled" Value="True"/>
+								</DataTrigger>
+							</Style.Triggers>
+						</Style>
+					</Button.Style>
+				</Button>
+			</Grid>
+        </Border>
+
+        <!-- New Added Driver Config Block -->
+        <Border BorderBrush="Black" BorderThickness="0.5" Grid.Column="1" Grid.Row="0" Padding="10">
+            <Grid >
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="30"></RowDefinition>
+                    <RowDefinition Height="40"></RowDefinition>
+                    <RowDefinition Height="30"></RowDefinition>
+                    <RowDefinition Height="50"></RowDefinition>
+                    <RowDefinition Height="30"></RowDefinition>
+                    <RowDefinition Height="50"></RowDefinition>
+                    <RowDefinition Height="*" MinHeight="50"></RowDefinition>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition></ColumnDefinition>
+                </Grid.ColumnDefinitions>
+                
+                <Label Content="Selected Device:" VerticalContentAlignment="Center" FontSize="16" ></Label>
+                <TextBlock x:Name="SelectedDevice" Grid.Row="1" VerticalAlignment="Center" FontSize="16" Padding="5, 0, 0, 0" TextAlignment="Left" TextTrimming="WordEllipsis">
+                    <TextBlock.Text>
+                        <Binding Path="SelectedDevice" UpdateSourceTrigger="PropertyChanged"/>
+                    </TextBlock.Text>
+                </TextBlock>
+                
+                <Label Grid.Row="2" Content="Entry:" VerticalContentAlignment="Center" FontSize="16" Margin="0, 0, 0, -16"></Label>
+                <DockPanel Grid.Row="3">
+                    <ComboBox Name="EntryTextBox" Width="320" Height="32" FontSize="16" VerticalContentAlignment="Center" IsEditable="True" IsReadOnly="True" MaxDropDownHeight="128" Margin="5, 0, 5, 0"
+                          ItemsSource="{Binding ExposedCommands}" DisplayMemberPath="Entry" SelectedValuePath="Entry" SelectedItem="{Binding SelectedCommand}"/>
+                    <ToggleButton x:Name="ShowEntryUsageButton" Margin="10">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ElementName=EntryTextBox, Path=Text}" Value="">
+                                        <Setter Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                        <StackPanel>
+                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" Text="?"/>
+                            <Popup IsOpen="{Binding IsChecked, ElementName=ShowEntryUsageButton}">
+                                <Border BorderThickness="1">
+                                    <TextBlock Name="myPopupText" Background="White" Foreground="Black" Padding="10" 
+                                               FontSize="14" Text="{Binding SelectedCommand.Usage}"/>
+                                </Border>
+                            </Popup>
+                        </StackPanel>
+                    </ToggleButton>
+                </DockPanel>
+                
+                <Label Grid.Row="4" Content="Value:" VerticalContentAlignment="Center" FontSize="16" Margin="0, 0, 0, -16"></Label>
+                <TextBox Grid.Row="5" Name="ValueTextBox" VerticalAlignment="Center" FontSize="20" TextAlignment="Left" IsEnabled="True" Margin="5, 0, 5, 0" Text="{Binding NewEntryValue, UpdateSourceTrigger=PropertyChanged}"/>
+                <Grid Grid.Row="6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"></ColumnDefinition>
+                        <ColumnDefinition Width="*"></ColumnDefinition>
+                    </Grid.ColumnDefinitions>
+                    <Button FontSize="16" Margin="5, 25, 5, 25" Content="Apply" Command="{Binding ApplyEntryValueCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ElementName=EntryTextBox, Path=Text}" Value="">
+                                        <Setter Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ElementName=EntryTextBox, Path=(Validation.HasError)}" Value="True">
+                                        <Setter Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ElementName=ValueTextBox, Path=Text}" Value="">
+                                        <Setter Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button Grid.Column="1" FontSize="16" Margin="5, 25, 5, 25" Command="{Binding FetchEntryValueClickCommand}" Content="Fetch Value">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ElementName=SelectedDevice, Path=Text}" Value="">
+                                        <Setter Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ElementName=EntryTextBox, Path=Text}" Value="">
+                                        <Setter Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ElementName=EntryTextBox, Path=(Validation.HasError)}" Value="True">
+                                        <Setter Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

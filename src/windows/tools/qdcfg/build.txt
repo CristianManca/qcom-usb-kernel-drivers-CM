@@ -1,0 +1,26 @@
+MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+
+  main.c
+  reg.c
+  trace.c
+  Generating Code...
+     Creating library C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qdcfg\Release\qdcfg.lib and object C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qdcfg\Release\qdcfg.exp
+  qdcfg.vcxproj -> C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qdcfg\Release\qdcfg.dll
+MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+
+  qdcfg.vcxproj -> C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qdcfg\Release\qdcfg.dll
+MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+
+  main.c
+  reg.c
+  trace.c
+  Generating Code...
+     Creating library C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qdcfg\Release_EXE\qdcfg.lib and object C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qdcfg\Release_EXE\qdcfg.exp
+  qdcfg.vcxproj -> C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qdcfg\Release_EXE\qdcfg.exe
+MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+
+  qdcfg.vcxproj -> C:\_GIT_Workspace\qcom-usb-kernel-drivers-CM\src\windows\tools\qdcfg\Release_EXE\qdcfg.exe
+'uild.exe' is not recognized as an internal or external command,
+operable program or batch file.
+'nimal' is not recognized as an internal or external command,
+operable program or batch file.
