@@ -328,6 +328,15 @@ else
          fi
       fi
 
+      if  [[ $OSName =~ "Ubuntu 24.04" ]] || [[ $OSName =~ "Debian" ]]; then
+         if [ -f $QCOM_NET_DEPENDENCY_PATH/mii.ko ]; then
+            $QCOM_LN_RM_MK_DIR/rm -rf $QCOM_NET_DEPENDENCY_PATH/mii.ko
+         fi
+         if [ -f $QCOM_USBNET_AND_QMI_WWAN/usbnet.ko ]; then
+            $QCOM_LN_RM_MK_DIR/rm -rf $QCOM_USBNET_AND_QMI_WWAN/usbnet.ko
+         fi
+      fi
+
       if [ "`grep -nr 'Qualcomm clients' $MODULE_BLACKLIST_CONFIG/blacklist.conf`" != "" ]; then
          sed -i '/# Blacklist these module so that Qualcomm clients use only/d' $MODULE_BLACKLIST_CONFIG/blacklist.conf
          sed -i '/# qcom_usbnet, qcom_usb driver/d' $MODULE_BLACKLIST_CONFIG/blacklist.conf
