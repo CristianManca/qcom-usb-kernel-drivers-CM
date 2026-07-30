@@ -956,7 +956,7 @@ if [ "$MODLOADED" == "" ]; then
    echo -e "Loading module usbserial"
    if [[ $OSName =~ "Red Hat Enterprise Linux" ]] || [[ $OSName =~ "Fedora Linux" ]] || [[ $OSName =~ "Debian" ]]; then
       if [ -f $MODULE_BLACKLIST_PATH/usbserial.ko.xz ]; then
-         xz -d $MODULE_BLACKLIST_PATH/usbserial.ko.xz
+         xz -d -k $MODULE_BLACKLIST_PATH/usbserial.ko.xz
          $QCOM_MODBIN_DIR/insmod $MODULE_BLACKLIST_PATH/usbserial.ko
       elif [ -f $MODULE_BLACKLIST_PATH/usbserial.ko.zst ]; then
          unzstd -d $MODULE_BLACKLIST_PATH/usbserial.ko.zst
@@ -1092,7 +1092,7 @@ if [ "$MODLOADED" == "" ]; then
    echo -e "Loading module mii"
    if [[ $OSName =~ "Red Hat Enterprise Linux" ]] || [[ $OSName =~ "Fedora Linux" ]] || [[ $OSName =~ "Ubuntu 24.04" ]] || [[ $OSName =~ "Debian" ]]; then
       if [ -f $QCOM_NET_DEPENDENCY_PATH/mii.ko.xz ]; then
-        xz -d $QCOM_NET_DEPENDENCY_PATH/mii.ko.xz
+        xz -d -k $QCOM_NET_DEPENDENCY_PATH/mii.ko.xz
       fi
       if [ -f $QCOM_NET_DEPENDENCY_PATH/mii.ko.zst ]; then
         unzstd -d $QCOM_NET_DEPENDENCY_PATH/mii.ko.zst
@@ -1120,7 +1120,7 @@ if [ "$MODLOADED" == "" ]; then
    echo -e "Loading module usbnet"
    if [[ $OSName =~ "Red Hat Enterprise Linux" ]] || [[ $OSName =~ "Fedora Linux" ]] || [[ $OSName =~ "Ubuntu 24.04" ]] || [[ $OSName =~ "Debian" ]]; then
       if [ -f $QCOM_USBNET_AND_QMI_WWAN/usbnet.ko.xz ]; then
-        xz -d $QCOM_USBNET_AND_QMI_WWAN/usbnet.ko.xz
+        xz -d -k $QCOM_USBNET_AND_QMI_WWAN/usbnet.ko.xz
       fi
       if [ -f $QCOM_USBNET_AND_QMI_WWAN/usbnet.ko.zst ]; then
         unzstd -d $QCOM_USBNET_AND_QMI_WWAN/usbnet.ko.zst
