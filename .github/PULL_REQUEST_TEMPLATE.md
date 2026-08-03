@@ -31,13 +31,6 @@ Fixes #<issue-number>
 - [ ] Test-only change
 - [ ] CI / build-pipeline change
 
-## Target branch
-
-<!-- Tick the branch this PR targets. -->
-
-- [ ] `develop` (default for `feature/`, `bugfix/`, `docs/`, `ci/`)
-- [ ] `release/x.y` (only for `hotfix/` branches)
-
 ## How has this been tested?
 
 <!--
