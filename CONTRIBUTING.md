@@ -577,8 +577,7 @@ PR description speeds up review significantly.
 
 ## Review Process
 
-- A maintainer will review your PR. Expect first response within
-  ~3 business days for bug fixes and ~1 week for features.
+- **Review timeline:** See [Maintainer Responsibilities](#maintainer-responsibilities) for details on response times and the review cycle.
 - All required CI checks must pass: lint, build, tests.
 - Reviewers may request changes; please address them or discuss in-line.
 - Once approved, a maintainer will **squash-merge** (default) or **rebase-merge**
