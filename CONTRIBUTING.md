@@ -583,14 +583,6 @@ PR description speeds up review significantly.
 - Once approved, a maintainer will **squash-merge** (default) or **rebase-merge**
   your PR into `develop`. Your branch will then be auto-deleted.
 
-### Things that increase the chance of acceptance
-- Linked issue describing the problem.
-- Small, focused diff.
-- Tests that demonstrate the fix or new feature.
-- Clear PR description, including *why* the change is needed.
-- Up-to-date branch (rebased on latest `develop`).
-- Conventional commit messages with DCO sign-off.
-
 ---
 
 ## Maintainer Responsibilities
