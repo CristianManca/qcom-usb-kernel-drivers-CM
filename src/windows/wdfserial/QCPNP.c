@@ -683,7 +683,18 @@ NTSTATUS QCPNP_DeviceConfig
     pDevContext->InterruptInPipe = NULL;
     pDevContext->BulkIN = NULL;
     pDevContext->BulkOUT = NULL;
+    // Placeholder default; WdfUseDefault (see QCPNP_EnableSelectiveSuspend,
+    // called with HonorPersistedUserChoice=TRUE) lets WDF re-apply the
+    // user's persisted "Allow the computer to turn off this device"
+    // choice instead of forcing it back on every boot/re-enumeration.
+    // Forced FALSE below for SAHARA/FIREHOSE/LPC devices.
     pDevContext->PowerManagementEnabled = TRUE;
+    QCSER_DbgPrint
+    (
+        QCSER_DBG_MASK_POWER,
+        QCSER_DBG_LEVEL_TRACE,
+        ("<%ws> QCPNP_DeviceConfig PowerManagementEnabled seeded to placeholder TRUE (overwritten later from persisted registry value)\n", pDevContext->PortName)
+    );
     pDevContext->AmountInInQueue = 0;
     RtlZeroMemory(&pDevContext->Timeouts, sizeof(SERIAL_TIMEOUTS));
     RtlZeroMemory(&pDevContext->PerfStats, sizeof(SERIALPERF_STATS));
@@ -1728,8 +1739,9 @@ NTSTATUS QCPNP_EvtDevicePrepareHardware
         pDevContext->PowerManagementEnabled = FALSE;
     }
 
-    // Setup usb selective suspend
-    status = QCPNP_EnableSelectiveSuspend(Device);
+    // Boot/re-enum path: let WDF re-apply the persisted "Allow the
+    // computer to turn off this device" choice instead of forcing it on.
+    status = QCPNP_EnableSelectiveSuspend(Device, TRUE);
     if (!NT_SUCCESS(status))
     {
         QCSER_DbgPrint
@@ -2103,19 +2115,103 @@ exit:
 
 /****************************************************************************
  *
+ * function: QCPNP_SyncPersistedIdleEnabledState
+ *
+ * purpose:  Best-effort, read-only re-sync of pDevContext->PowerManagementEnabled
+ *           with the WDF-owned IdleInWorkingState registry value, after
+ *           WdfUseDefault has (re-)applied it. This driver's own flag
+ *           feeds the custom Power Management checkbox
+ *           (QCPNP_PMQueryWmiDataBlock/DataItem); without this sync it
+ *           would stay stuck at its hardcoded TRUE seed and mismatch
+ *           the actual persisted state. Never writes the registry value
+ *           and never influences the Enabled decision itself, which
+ *           remains fully owned by WDF.
+ *
+ * arguments:pDevContext = pointer to the device context.
+ *
+ * returns:  VOID
+ *
+ ****************************************************************************/
+VOID QCPNP_SyncPersistedIdleEnabledState(PDEVICE_CONTEXT pDevContext)
+{
+    NTSTATUS       status;
+    WDFKEY         deviceParamsKey = NULL;
+    WDFKEY         wdfKey = NULL;
+    UNICODE_STRING ucWdfSubKey;
+    UNICODE_STRING ucValueName;
+    ULONG          idleInWorkingState = 0;
+
+    status = WdfDeviceOpenRegistryKey
+    (
+        pDevContext->Device,
+        PLUGPLAY_REGKEY_DEVICE,
+        KEY_READ,
+        WDF_NO_OBJECT_ATTRIBUTES,
+        &deviceParamsKey
+    );
+    if (!NT_SUCCESS(status))
+    {
+        goto exit;
+    }
+
+    RtlInitUnicodeString(&ucWdfSubKey, L"WDF");
+    status = WdfRegistryOpenKey(deviceParamsKey, &ucWdfSubKey, KEY_READ, WDF_NO_OBJECT_ATTRIBUTES, &wdfKey);
+    if (!NT_SUCCESS(status))
+    {
+        goto exit;
+    }
+
+    RtlInitUnicodeString(&ucValueName, L"IdleInWorkingState");
+    status = QCMAIN_GetDriverRegistryDword(wdfKey, &ucValueName, &idleInWorkingState, pDevContext);
+    if (NT_SUCCESS(status))
+    {
+        pDevContext->PowerManagementEnabled = (idleInWorkingState != 0);
+        QCSER_DbgPrint
+        (
+            QCSER_DBG_MASK_POWER,
+            QCSER_DBG_LEVEL_TRACE,
+            ("<%ws> QCPNP_SyncPersistedIdleEnabledState IdleInWorkingState=%lu PowerManagementEnabled=%d\n",
+             pDevContext->PortName, idleInWorkingState, pDevContext->PowerManagementEnabled)
+        );
+    }
+
+exit:
+    if (wdfKey != NULL)
+    {
+        WdfRegistryClose(wdfKey);
+    }
+    if (deviceParamsKey != NULL)
+    {
+        WdfRegistryClose(deviceParamsKey);
+    }
+}
+
+/****************************************************************************
+ *
  * function: QCPNP_EnableSelectiveSuspend
  *
  * purpose:  Configures USB selective suspend idle settings based on the
  *           registry-specified idle timeout value.
  *
- * arguments:Device = handle to the WDF device object.
+ * arguments:Device                   = handle to the WDF device object.
+ *           HonorPersistedUserChoice = TRUE on boot/re-enumeration
+ *           (QCPNP_EvtDevicePrepareHardware): Enabled is set to
+ *           WdfUseDefault so WDF re-applies the user's last "Allow the
+ *           computer to turn off this device" choice, persisted by WDF
+ *           itself in Device Parameters\WDF\IdleInWorkingState (which
+ *           this driver must not read/write directly for that purpose).
+ *           FALSE on an explicit runtime WMI toggle
+ *           (QCPNP_PMSetWmiDataItem/DataBlock): Enabled is set to the
+ *           explicit WdfTrue/WdfFalse value so the new choice takes
+ *           effect immediately.
  *
  * returns:  NT Status
  *
  ****************************************************************************/
 NTSTATUS QCPNP_EnableSelectiveSuspend
 (
-    WDFDEVICE Device
+    WDFDEVICE Device,
+    BOOLEAN   HonorPersistedUserChoice
 )
 {
     NTSTATUS        status = STATUS_SUCCESS;
@@ -2127,7 +2223,8 @@ NTSTATUS QCPNP_EnableSelectiveSuspend
     (
         QCSER_DBG_MASK_POWER,
         QCSER_DBG_LEVEL_TRACE,
-        ("<%ws> QCPNP_EnableSelectiveSuspend\n", pDevContext->PortName)
+        ("<%ws> QCPNP_EnableSelectiveSuspend PowerManagementEnabled=%d HonorPersistedUserChoice=%d\n",
+         pDevContext->PortName, pDevContext->PowerManagementEnabled, HonorPersistedUserChoice)
     );
 
     idleSettings.IdleTimeout = pDevContext->SelectiveSuspendIdleTime;
@@ -2149,7 +2246,19 @@ NTSTATUS QCPNP_EnableSelectiveSuspend
         {
             idleSettings.IdleTimeout *= 1000;
         }
-        idleSettings.Enabled = pDevContext->PowerManagementEnabled ? WdfTrue : WdfFalse;
+        if (!pDevContext->PowerManagementEnabled)
+        {
+            // HW-forced disable (SAHARA/FIREHOSE/LPC) always wins.
+            idleSettings.Enabled = WdfFalse;
+        }
+        else if (HonorPersistedUserChoice)
+        {
+            idleSettings.Enabled = WdfUseDefault;
+        }
+        else
+        {
+            idleSettings.Enabled = WdfTrue;
+        }
         status = WdfDeviceAssignS0IdleSettings(Device, &idleSettings);
         if (status == STATUS_POWER_STATE_INVALID)
         {
@@ -2162,6 +2271,12 @@ NTSTATUS QCPNP_EnableSelectiveSuspend
             );
             idleSettings.IdleCaps = IdleCannotWakeFromS0;
             status = WdfDeviceAssignS0IdleSettings(Device, &idleSettings);
+        }
+        if (NT_SUCCESS(status) && HonorPersistedUserChoice && pDevContext->PowerManagementEnabled)
+        {
+            // Re-sync our tracked flag with what WdfUseDefault actually
+            // applied, so the checkbox reflects the real state.
+            QCPNP_SyncPersistedIdleEnabledState(pDevContext);
         }
     }
     QCSER_DbgPrint
@@ -3953,6 +4068,7 @@ VOID QCPNP_RetrieveServiceConfig(PDEVICE_CONTEXT pDevContext)
             ("<%ws> QCPNP_RetrieveServiceConfig: failed to fetch SS value from reg 0x%x\n", pDevContext->PortName, status)
         );
     }
+
     WdfRegistryClose(key);
     return;
 
@@ -4728,7 +4844,8 @@ NTSTATUS QCPNP_PMSetWmiDataItem
             pDevContext->PowerManagementEnabled = *(PBOOLEAN)Buffer;
             if (pDevContext->PowerManagementEnabled)
             {
-                QCPNP_EnableSelectiveSuspend(device);
+                // Explicit user toggle: apply immediately (HonorPersistedUserChoice = FALSE).
+                QCPNP_EnableSelectiveSuspend(device, FALSE);
             }
             else
             {
@@ -4864,7 +4981,8 @@ NTSTATUS QCPNP_PMSetWmiDataBlock
             pDevContext->PowerManagementEnabled = *(PBOOLEAN)Buffer;
             if (pDevContext->PowerManagementEnabled)
             {
-                QCPNP_EnableSelectiveSuspend(device);
+                // Explicit user toggle: apply immediately (HonorPersistedUserChoice = FALSE).
+                QCPNP_EnableSelectiveSuspend(device, FALSE);
             }
             else
             {
