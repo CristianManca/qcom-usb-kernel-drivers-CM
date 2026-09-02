@@ -2115,79 +2115,6 @@ exit:
 
 /****************************************************************************
  *
- * function: QCPNP_SyncPersistedIdleEnabledState
- *
- * purpose:  Best-effort, read-only re-sync of pDevContext->PowerManagementEnabled
- *           with the WDF-owned IdleInWorkingState registry value, after
- *           WdfUseDefault has (re-)applied it. This driver's own flag
- *           feeds the custom Power Management checkbox
- *           (QCPNP_PMQueryWmiDataBlock/DataItem); without this sync it
- *           would stay stuck at its hardcoded TRUE seed and mismatch
- *           the actual persisted state. Never writes the registry value
- *           and never influences the Enabled decision itself, which
- *           remains fully owned by WDF.
- *
- * arguments:pDevContext = pointer to the device context.
- *
- * returns:  VOID
- *
- ****************************************************************************/
-VOID QCPNP_SyncPersistedIdleEnabledState(PDEVICE_CONTEXT pDevContext)
-{
-    NTSTATUS       status;
-    WDFKEY         deviceParamsKey = NULL;
-    WDFKEY         wdfKey = NULL;
-    UNICODE_STRING ucWdfSubKey;
-    UNICODE_STRING ucValueName;
-    ULONG          idleInWorkingState = 0;
-
-    status = WdfDeviceOpenRegistryKey
-    (
-        pDevContext->Device,
-        PLUGPLAY_REGKEY_DEVICE,
-        KEY_READ,
-        WDF_NO_OBJECT_ATTRIBUTES,
-        &deviceParamsKey
-    );
-    if (!NT_SUCCESS(status))
-    {
-        goto exit;
-    }
-
-    RtlInitUnicodeString(&ucWdfSubKey, L"WDF");
-    status = WdfRegistryOpenKey(deviceParamsKey, &ucWdfSubKey, KEY_READ, WDF_NO_OBJECT_ATTRIBUTES, &wdfKey);
-    if (!NT_SUCCESS(status))
-    {
-        goto exit;
-    }
-
-    RtlInitUnicodeString(&ucValueName, L"IdleInWorkingState");
-    status = QCMAIN_GetDriverRegistryDword(wdfKey, &ucValueName, &idleInWorkingState, pDevContext);
-    if (NT_SUCCESS(status))
-    {
-        pDevContext->PowerManagementEnabled = (idleInWorkingState != 0);
-        QCSER_DbgPrint
-        (
-            QCSER_DBG_MASK_POWER,
-            QCSER_DBG_LEVEL_TRACE,
-            ("<%ws> QCPNP_SyncPersistedIdleEnabledState IdleInWorkingState=%lu PowerManagementEnabled=%d\n",
-             pDevContext->PortName, idleInWorkingState, pDevContext->PowerManagementEnabled)
-        );
-    }
-
-exit:
-    if (wdfKey != NULL)
-    {
-        WdfRegistryClose(wdfKey);
-    }
-    if (deviceParamsKey != NULL)
-    {
-        WdfRegistryClose(deviceParamsKey);
-    }
-}
-
-/****************************************************************************
- *
  * function: QCPNP_EnableSelectiveSuspend
  *
  * purpose:  Configures USB selective suspend idle settings based on the
@@ -2271,12 +2198,6 @@ NTSTATUS QCPNP_EnableSelectiveSuspend
             );
             idleSettings.IdleCaps = IdleCannotWakeFromS0;
             status = WdfDeviceAssignS0IdleSettings(Device, &idleSettings);
-        }
-        if (NT_SUCCESS(status) && HonorPersistedUserChoice && pDevContext->PowerManagementEnabled)
-        {
-            // Re-sync our tracked flag with what WdfUseDefault actually
-            // applied, so the checkbox reflects the real state.
-            QCPNP_SyncPersistedIdleEnabledState(pDevContext);
         }
     }
     QCSER_DbgPrint
@@ -4719,6 +4640,83 @@ NTSTATUS QCPNP_WdmPreprocessSystemControl
 
 /****************************************************************************
  *
+ * function: QCPNP_SyncPersistedIdleEnabledState
+ *
+ * purpose:  Best-effort, read-only re-sync of pDevContext->PowerManagementEnabled
+ *           with the WDF-owned IdleInWorkingState registry value. Called
+ *           only when the driver's custom Power Management checkbox state
+ *           is actually queried (QCPNP_PMQueryWmiDataBlock), i.e. when the
+ *           user opens the device's Power Management property page -
+ *           NOT on every boot/re-enumeration. This keeps the checkbox
+ *           showing the real persisted state without re-reading the
+ *           registry on every device (re-)initialization, and avoids the
+ *           GUI echoing back (and thus overwriting) a stale value when
+ *           the property page is closed. Never writes the registry value
+ *           and never influences the Enabled decision passed to
+ *           WdfDeviceAssignS0IdleSettings, which remains fully owned by
+ *           WDF via WdfUseDefault/WdfTrue/WdfFalse.
+ *
+ * arguments:pDevContext = pointer to the device context.
+ *
+ * returns:  VOID
+ *
+ ****************************************************************************/
+VOID QCPNP_SyncPersistedIdleEnabledState(PDEVICE_CONTEXT pDevContext)
+{
+    NTSTATUS       status;
+    WDFKEY         deviceParamsKey = NULL;
+    WDFKEY         wdfKey = NULL;
+    UNICODE_STRING ucWdfSubKey;
+    UNICODE_STRING ucValueName;
+    ULONG          idleInWorkingState = 0;
+
+    status = WdfDeviceOpenRegistryKey
+    (
+        pDevContext->Device,
+        PLUGPLAY_REGKEY_DEVICE,
+        KEY_READ,
+        WDF_NO_OBJECT_ATTRIBUTES,
+        &deviceParamsKey
+    );
+    if (!NT_SUCCESS(status))
+    {
+        goto exit;
+    }
+
+    RtlInitUnicodeString(&ucWdfSubKey, L"WDF");
+    status = WdfRegistryOpenKey(deviceParamsKey, &ucWdfSubKey, KEY_READ, WDF_NO_OBJECT_ATTRIBUTES, &wdfKey);
+    if (!NT_SUCCESS(status))
+    {
+        goto exit;
+    }
+
+    RtlInitUnicodeString(&ucValueName, L"IdleInWorkingState");
+    status = QCMAIN_GetDriverRegistryDword(wdfKey, &ucValueName, &idleInWorkingState, pDevContext);
+    if (NT_SUCCESS(status))
+    {
+        pDevContext->PowerManagementEnabled = (idleInWorkingState != 0);
+        QCSER_DbgPrint
+        (
+            QCSER_DBG_MASK_POWER,
+            QCSER_DBG_LEVEL_TRACE,
+            ("<%ws> QCPNP_SyncPersistedIdleEnabledState IdleInWorkingState=%lu PowerManagementEnabled=%d\n",
+             pDevContext->PortName, idleInWorkingState, pDevContext->PowerManagementEnabled)
+        );
+    }
+
+exit:
+    if (wdfKey != NULL)
+    {
+        WdfRegistryClose(wdfKey);
+    }
+    if (deviceParamsKey != NULL)
+    {
+        WdfRegistryClose(deviceParamsKey);
+    }
+}
+
+/****************************************************************************
+ *
  * function: QCPNP_PMQueryWmiDataBlock
  *
  * purpose:  WMI callback to query a data block. Returns the current power
@@ -4766,6 +4764,16 @@ NTSTATUS QCPNP_PMQueryWmiDataBlock
                 {
                     status = STATUS_BUFFER_TOO_SMALL;
                     break;
+                }
+                // HW-forced disable (SAHARA/FIREHOSE/LPC) is not a user
+                // choice and has no corresponding persisted registry
+                // state to sync from; skip the read and keep reporting
+                // the forced FALSE set in QCPNP_EvtDevicePrepareHardware.
+                if (!(IS_DEV_PROTOCOL_SAHARA(pDevContext->InterfaceProtocol) ||
+                      IS_DEV_PROTOCOL_FIREHOSE(pDevContext->InterfaceProtocol) ||
+                      (pDevContext->DeviceFunction == QCUSB_DEV_FUNC_LPC)))
+                {
+                    QCPNP_SyncPersistedIdleEnabledState(pDevContext);
                 }
                 *(PBOOLEAN)Buffer = pDevContext->PowerManagementEnabled;
                 *InstanceLengthArray = sizeof(BOOLEAN);
